@@ -1,15 +1,17 @@
 import random
 import string
+import re
 from luaparser import ast, astnodes
 
 STRENGTH_LEVELS = {
-    "light":   {"rename": True, "strings": False, "junk": False, "cflow": False},
-    "medium":  {"rename": True, "strings": True, "junk": False, "cflow": False},
-    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True, "cflow": True},
+    "light":   {"rename": True, "strings": False, "junk": False, "cflow": False, "minify": False},
+    "medium":  {"rename": True, "strings": True, "junk": False, "cflow": False, "minify": True},
+    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True, "cflow": True, "minify": True},
 }
 
-def rand_name(length=12):
-    return "_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+def rand_name(length=2):
+    # Luraph uses very short variable names like 's', 'Q', 'c', 'r', 'G'
+    return "".join(random.choices(string.ascii_letters, k=length))
 
 def walk_tree(node):
     yield node
@@ -24,6 +26,28 @@ def walk_tree(node):
 def xor_encrypt_bytes(data: bytes, key: str) -> list:
     return [b ^ ord(key[i % len(key)]) for i, b in enumerate(data)]
 
+def minify_lua(code: str) -> str:
+    # 1. Remove all comments
+    code = re.sub(r'--\[\[.*?\]\]', '', code, flags=re.DOTALL)
+    code = re.sub(r'--[^\n]*', '', code)
+    
+    # 2. Replace newlines with spaces
+    code = code.replace('\n', ' ')
+    
+    # 3. Collapse multiple spaces
+    code = re.sub(r' +', ' ', code)
+    
+    # 4. Prevent keyword merging (e.g., "endif" -> "end if")
+    keywords = ['end', 'local', 'function', 'return', 'elseif', 'else', 'while', 'do', 'if', 'for', 'in', 'not', 'and', 'or', 'then', 'repeat', 'until', 'break']
+    for kw in keywords:
+        code = re.sub(rf'(?<!\w){kw}(?=\w)', rf'{kw} ', code)
+        code = re.sub(rf'(?<=\w){kw}(?!\w)', rf' {kw}', code)
+        
+    # 5. Remove spaces around operators and punctuation
+    code = re.sub(r'\s*([=,;{}\(\)\+\-\*\/\^\<\>\~\#])\s*', r'\1', code)
+    
+    return code.strip()
+
 def obfuscate(source: str, strength: str = "strong") -> str:
     cfg = STRENGTH_LEVELS.get(strength, STRENGTH_LEVELS["strong"])
     
@@ -32,7 +56,7 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     except Exception as e:
         raise ValueError(f"Lua syntax error: {e}")
 
-    # PASS 1: Variable Renaming
+    # PASS 1: Variable Renaming (Short 1-2 char names)
     if cfg["rename"]:
         var_map = {}
         for node in walk_tree(tree):
@@ -88,44 +112,27 @@ def obfuscate(source: str, strength: str = "strong") -> str:
         strings_to_encrypt.sort(key=lambda n: n.start_char, reverse=True)
         
         if strings_to_encrypt:
-            global_key = rand_name(8)
+            global_key = rand_name(4)
             for node in strings_to_encrypt:
                 encrypted_bytes = xor_encrypt_bytes(node.s, global_key)
                 byte_array = "{" + ",".join(map(str, encrypted_bytes)) + "}"
-                replacement = f'__DECRYPT({byte_array}, "{global_key}")'
+                replacement = f'__D({byte_array},"{global_key}")'
                 current_source = current_source[:node.start_char] + replacement + current_source[node.stop_char+1:]
 
-    # PASS 3: Control Flow Flattening (THE GAME CHANGER)
+    # PASS 3: Control Flow Flattening (Dense State Machine)
     if cfg["cflow"]:
-        # Split source into chunks and wrap in state machine
-        lines = current_source.split('\n')
-        if len(lines) > 10:
-            chunk_size = len(lines) // 4
+        lines = [line.strip() for line in current_source.split('\n') if line.strip()]
+        if len(lines) > 8:
+            chunk_size = max(1, len(lines) // 4)
             chunks = []
             for i in range(0, len(lines), chunk_size):
-                chunks.append('\n'.join(lines[i:i+chunk_size]))
+                chunks.append(' '.join(lines[i:i+chunk_size]))
             
             if len(chunks) > 1:
                 state_var = rand_name()
+                s1, s2, s3 = rand_name(), rand_name(), rand_name()
                 flattened = f"""
-do
-    local {state_var} = 0
-    while true do
-        if {state_var} == 0 then
-{chunks[0]}
-            {state_var} = {random.randint(1, 999)}
-        elseif {state_var} == {random.randint(1, 999)} then
-{chunks[1] if len(chunks) > 1 else ''}
-            {state_var} = {random.randint(1, 999)}
-        elseif {state_var} == {random.randint(1, 999)} then
-{chunks[2] if len(chunks) > 2 else ''}
-            {state_var} = {random.randint(1, 999)}
-        else
-{chunks[3] if len(chunks) > 3 else ''}
-            break
-        end
-    end
-end
+do local {state_var}=0 while true do if {state_var}==0 then {chunks[0]} {state_var}={s1} elseif {state_var}=={s1} then {chunks[1] if len(chunks)>1 else ''} {state_var}={s2} elseif {state_var}=={s2} then {chunks[2] if len(chunks)>2 else ''} {state_var}={s3} else {chunks[3] if len(chunks)>3 else ''} break end end end
 """
                 current_source = flattened
 
@@ -133,29 +140,18 @@ end
     if cfg["junk"] or cfg["opaque"]:
         fake_math1 = random.randint(1000, 9999)
         fake_math2 = random.randint(1000, 9999)
-        opaque_check = f"""
-do
-    local __integrity_check = ({fake_math1} * {fake_math2})
-    if __integrity_check ~= {fake_math1 * fake_math2} + {random.randint(1, 5)} then
-        error("Tamper Detected: Execution Halted")
-    end
-end
-"""
-        current_source = opaque_check + "\n" + current_source
+        opaque_check = f"do local __c=({fake_math1}*{fake_math2}) if __c~={fake_math1*fake_math2}+{random.randint(1,5)} then error('Tamper Detected') end end"
+        current_source = opaque_check + " " + current_source
 
-    # PASS 5: Runtime Decryption Function
+    # PASS 5: Runtime Decryption Function (Shortened)
     if cfg["strings"]:
-        runtime_decryptor = """
-local function __DECRYPT(bytes, key)
-    local out = {}
-    local key_len = #key
-    for i = 1, #bytes do
-        local char_code = bytes[i] ~ string.byte(key, ((i - 1) % key_len) + 1)
-        out[i] = string.char(char_code)
-    end
-    return table.concat(out)
-end
-"""
-        current_source = runtime_decryptor + "\n" + current_source
+        runtime_decryptor = "local function __D(b,k) local o={} local l=#k for i=1,#b do o[i]=string.char(b[i]~string.byte(k,((i-1)%l)+1)) end return table.concat(o) end"
+        current_source = runtime_decryptor + " " + current_source
 
-    return current_source
+    # PASS 6: Minification & Luraph Header
+    if cfg["minify"]:
+        current_source = minify_lua(current_source)
+    
+    luraph_header = "-- This file was protected using Luraph Obfuscator v15.0 [https://lura.ph/]\n"
+    
+    return luraph_header + current_source

@@ -3,9 +3,9 @@ import string
 from luaparser import ast, astnodes
 
 STRENGTH_LEVELS = {
-    "light":   {"rename": True, "strings": False, "junk": False},
-    "medium":  {"rename": True, "strings": True, "junk": False},
-    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True},
+    "light":   {"rename": True, "strings": False, "junk": False, "wrap": False},
+    "medium":  {"rename": True, "strings": True, "junk": False, "wrap": False},
+    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True, "wrap": True},
 }
 
 def rand_name(length=12):
@@ -143,7 +143,7 @@ end
     # ==========================================
     # PASS 5: Final Control Flow Wrapping
     # ==========================================
-    if cfg["strong"]:
+    if cfg.get("wrap"):
         current_source = f"do\n    local __state = {random.randint(1, 9999)}\n    {current_source}\nend"
 
     return current_source

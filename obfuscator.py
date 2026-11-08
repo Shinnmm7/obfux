@@ -10,10 +10,11 @@ STRENGTH_LEVELS = {
 }
 
 def rand_name(length=2):
-    # Luraph uses very short variable names like 's', 'Q', 'c', 'r', 'G'
+    # Luraph-style short variable names
     return "".join(random.choices(string.ascii_letters, k=length))
 
 def walk_tree(node):
+    """Robustly recursively walk all nodes in the luaparser AST"""
     yield node
     for attr_name, attr_value in vars(node).items():
         if isinstance(attr_value, astnodes.Node):
@@ -24,9 +25,11 @@ def walk_tree(node):
                     yield from walk_tree(item)
 
 def xor_encrypt_bytes(data: bytes, key: str) -> list:
+    """XOR encrypt a byte string with a repeating key"""
     return [b ^ ord(key[i % len(key)]) for i, b in enumerate(data)]
 
 def minify_lua(code: str) -> str:
+    """Compress Lua code into a dense, unreadable format"""
     # 1. Remove all comments
     code = re.sub(r'--\[\[.*?\]\]', '', code, flags=re.DOTALL)
     code = re.sub(r'--[^\n]*', '', code)
@@ -56,7 +59,9 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     except Exception as e:
         raise ValueError(f"Lua syntax error: {e}")
 
+    # ==========================================
     # PASS 1: Variable Renaming (Short 1-2 char names)
+    # ==========================================
     if cfg["rename"]:
         var_map = {}
         for node in walk_tree(tree):
@@ -102,7 +107,9 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     except Exception:
         pass
 
+    # ==========================================
     # PASS 2: String Encryption
+    # ==========================================
     if cfg["strings"]:
         strings_to_encrypt = []
         for node in walk_tree(tree):
@@ -119,7 +126,9 @@ def obfuscate(source: str, strength: str = "strong") -> str:
                 replacement = f'__D({byte_array},"{global_key}")'
                 current_source = current_source[:node.start_char] + replacement + current_source[node.stop_char+1:]
 
+    # ==========================================
     # PASS 3: Control Flow Flattening (Dense State Machine)
+    # ==========================================
     if cfg["cflow"]:
         lines = [line.strip() for line in current_source.split('\n') if line.strip()]
         if len(lines) > 8:
@@ -136,22 +145,40 @@ do local {state_var}=0 while true do if {state_var}==0 then {chunks[0]} {state_v
 """
                 current_source = flattened
 
+    # ==========================================
     # PASS 4: Opaque Predicates & Junk
+    # ==========================================
     if cfg["junk"] or cfg["opaque"]:
         fake_math1 = random.randint(1000, 9999)
         fake_math2 = random.randint(1000, 9999)
         opaque_check = f"do local __c=({fake_math1}*{fake_math2}) if __c~={fake_math1*fake_math2}+{random.randint(1,5)} then error('Tamper Detected') end end"
         current_source = opaque_check + " " + current_source
 
+    # ==========================================
     # PASS 5: Runtime Decryption Function (Shortened)
+    # ==========================================
     if cfg["strings"]:
         runtime_decryptor = "local function __D(b,k) local o={} local l=#k for i=1,#b do o[i]=string.char(b[i]~string.byte(k,((i-1)%l)+1)) end return table.concat(o) end"
         current_source = runtime_decryptor + " " + current_source
 
-    # PASS 6: Minification & Luraph Header
+    # ==========================================
+    # PASS 6: Minification
+    # ==========================================
     if cfg["minify"]:
         current_source = minify_lua(current_source)
     
-    luraph_header = "-- This file was protected using Luraph Obfuscator v15.0 [https://lura.ph/]\n"
+    # ==========================================
+    # PASS 7: Custom ASCII Logo & Header
+    # ==========================================
+    # Added AFTER minification so the ASCII art stays perfectly formatted
+    custom_header = """===================================================
+  __   __  ___   ___  ____  ____  ____ 
+ / /  / / / _ \\ / _ \\|  _ \\|  _ \\/ ___|
+| |  | | | | | | | | | |_) | |_) \\___ \\
+| |  | | | |_| | |_| |  _ <|  __/ ___) |
+ \\_\\  \\_\\  \\___/ \\___/|_| \\_\\_|   |____/ 
+      辛贤 混淆器 | Advanced Lua Protection
+===================================================
+"""
     
-    return luraph_header + current_source
+    return custom_header + current_source

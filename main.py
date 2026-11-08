@@ -27,13 +27,24 @@ async def on_ready():
 @bot.tree.command(name="obf", description="Obfuscate a Lua script")
 async def obfuscate_cmd(interaction: discord.Interaction, file: discord.Attachment):
     await interaction.response.defer(ephemeral=True)
+    
     if not file.filename.endswith((".lua", ".txt")):
         await interaction.followup.send("❌ Please provide a `.lua` or `.txt` file.", ephemeral=True)
         return
     
     try:
         content = await file.read()
-        source_code = content.decode('utf-8')
+        
+        # Handle potential encoding issues
+        try:
+            source_code = content.decode('utf-8')
+        except UnicodeDecodeError:
+            await interaction.followup.send(
+                "❌ **Encoding Error**: The file is not valid UTF-8. Please save it as UTF-8 and try again.", 
+                ephemeral=True
+            )
+            return
+
         obfuscated_code = obfuscate(source_code, strength="strong")
         
         new_file = discord.File(
@@ -41,8 +52,18 @@ async def obfuscate_cmd(interaction: discord.Interaction, file: discord.Attachme
             filename=f"obf_{file.filename}"
         )
         await interaction.followup.send("✅ Obfuscation complete!", file=new_file, ephemeral=True)
+        
+    except ValueError as e:
+        # This catches the specific "Lua syntax error" from the obfuscator
+        error_msg = str(e)
+        await interaction.followup.send(
+            f"❌ **Invalid Lua Code**: The file you uploaded has a syntax error and cannot be obfuscated.\n\n"
+            f"🔍 **Parser Details**: `{error_msg}`\n\n"
+            f"💡 **How to fix**: Open the file, go to the line number mentioned above, and fix the typo/missing 'end'. Test that the script runs normally *before* obfuscating it.", 
+            ephemeral=True
+        )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Unexpected Error**: {str(e)}", ephemeral=True)
 
 # ==========================================
 # FASTAPI WEB SERVER SETUP
@@ -50,7 +71,6 @@ async def obfuscate_cmd(interaction: discord.Interaction, file: discord.Attachme
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Starting Discord Bot in background...")
-    # Securely reads the token from Railway's Environment Variables
     bot_token = os.getenv("BOT_TOKEN", "")
     
     if bot_token:
@@ -62,7 +82,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Nebula Obfuscator", lifespan=lifespan)
 
-# INLINE HTML: No templates folder needed!
 HTML_CONTENT = """<!DOCTYPE html>
 <html>
 <head>

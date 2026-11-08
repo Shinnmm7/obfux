@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>辛贤  混淆器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white; min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .container {
+            background: rgba(20, 20, 40, 0.85);
+            padding: 40px; border-radius: 20px;
+            box-shadow: 0 0 40px rgba(138, 43, 226, 0.3);
+            width: 90%; max-width: 600px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center; margin-bottom: 30px;
+            background: linear-gradient(90deg, #8a2be2, #00d4ff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+        }
+        .drop-zone {
+            border: 2px dashed #8a2be2;
+            padding: 40px; text-align: center;
+            border-radius: 15px; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .drop-zone:hover, .drop-zone.drag {
+            background: rgba(138, 43, 226, 0.2);
+            border-color: #00d4ff;
+        }
+        select, button {
+            width: 100%; padding: 15px; margin-top: 20px;
+            border-radius: 10px; border: none;
+            font-size: 1em; cursor: pointer;
+        }
+        select { background: #1a1a2e; color: white; }
+        button {
+            background: linear-gradient(90deg, #8a2be2, #00d4ff);
+            color: white; font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: translateY(-2px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { text-align: center; margin-top: 20px; color: #00d4ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> 辛贤  混淆器</h1>
+        <form id="form" action="/obfuscate" method="POST" enctype="multipart/form-data">
+            <div class="drop-zone" id="dropZone">
+                <p>📁 Drop your .lua file here or click to browse</p>
+                <input type="file" name="file" id="file" accept=".lua,.txt" hidden>
+            </div>
+            <select name="strength">
+                <option value="light">🟢 Light (fast, variable rename only)</option>
+                <option value="medium">🟡 Medium (+ string encryption)</option>
+                <option value="strong" selected>🔴 Strong (full protection)</option>
+            </select>
+            <button type="submit" id="btn">🚀 Obfuscate</button>
+            <div id="status"></div>
+        </form>
+    </div>
+    <script>
+        const dz = document.getElementById('dropZone');
+        const fi = document.getElementById('file');
+        dz.onclick = () => fi.click();
+        dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+        dz.ondragleave = () => dz.classList.remove('drag');
+        dz.ondrop = e => {
+            e.preventDefault(); dz.classList.remove('drag');
+            fi.files = e.dataTransfer.files;
+            dz.querySelector('p').textContent = '✅ ' + fi.files[0].name;
+        };
+        fi.onchange = () => dz.querySelector('p').textContent = '✅ ' + fi.files[0].name;
+        
+        document.getElementById('form').onsubmit = async e => {
+            e.preventDefault();
+            const btn = document.getElementById('btn');
+            const status = document.getElementById('status');
+            btn.disabled = true; status.textContent = ' Obfuscating...';
+            const fd = new FormData(e.target);
+            const res = await fetch('/obfuscate', { method: 'POST', body: fd });
+            if (!res.ok) { status.textContent = '❌ ' + await res.text(); btn.disabled = false; return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'obfuscated.lua'; a.click();
+            status.textContent = ' Done! File downloaded.';
+            btn.disabled = false;
+        };
+    </script>
+</body>
+</html>

@@ -3,16 +3,15 @@ import string
 from luaparser import ast, astnodes
 
 STRENGTH_LEVELS = {
-    "light":   {"rename": True, "strings": False, "junk": False, "wrap": False},
-    "medium":  {"rename": True, "strings": True, "junk": False, "wrap": False},
-    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True, "wrap": True},
+    "light":   {"rename": True, "strings": False, "junk": False, "cflow": False},
+    "medium":  {"rename": True, "strings": True, "junk": False, "cflow": False},
+    "strong":  {"rename": True, "strings": True, "junk": True, "opaque": True, "cflow": True},
 }
 
 def rand_name(length=12):
     return "_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 def walk_tree(node):
-    """Robustly recursively walk all nodes in the luaparser AST"""
     yield node
     for attr_name, attr_value in vars(node).items():
         if isinstance(attr_value, astnodes.Node):
@@ -23,7 +22,6 @@ def walk_tree(node):
                     yield from walk_tree(item)
 
 def xor_encrypt_bytes(data: bytes, key: str) -> list:
-    """XOR encrypt a byte string with a repeating key"""
     return [b ^ ord(key[i % len(key)]) for i, b in enumerate(data)]
 
 def obfuscate(source: str, strength: str = "strong") -> str:
@@ -34,9 +32,7 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     except Exception as e:
         raise ValueError(f"Lua syntax error: {e}")
 
-    # ==========================================
-    # PASS 1: Variable & Argument Renaming
-    # ==========================================
+    # PASS 1: Variable Renaming
     if cfg["rename"]:
         var_map = {}
         for node in walk_tree(tree):
@@ -75,25 +71,20 @@ def obfuscate(source: str, strength: str = "strong") -> str:
                 if isinstance(node.target, astnodes.Name) and node.target.id in var_map:
                     node.target.id = var_map[node.target.id]
 
-    # Re-serialize to get updated source with renamed variables
     current_source = ast.to_lua_source(tree)
     
-    # Re-parse to get accurate character positions for the new source
     try:
         tree = ast.parse(current_source)
     except Exception:
-        pass # Fallback to current_source if re-parsing fails
+        pass
 
-    # ==========================================
-    # PASS 2: String Encryption (Position-Based Injection)
-    # ==========================================
+    # PASS 2: String Encryption
     if cfg["strings"]:
         strings_to_encrypt = []
         for node in walk_tree(tree):
             if isinstance(node, astnodes.String) and node.start_char is not None:
                 strings_to_encrypt.append(node)
         
-        # Sort by start_char DESCENDING so replacing from end to start doesn't shift indices
         strings_to_encrypt.sort(key=lambda n: n.start_char, reverse=True)
         
         if strings_to_encrypt:
@@ -102,15 +93,44 @@ def obfuscate(source: str, strength: str = "strong") -> str:
                 encrypted_bytes = xor_encrypt_bytes(node.s, global_key)
                 byte_array = "{" + ",".join(map(str, encrypted_bytes)) + "}"
                 replacement = f'__DECRYPT({byte_array}, "{global_key}")'
-                
-                # Inject directly into the source string
                 current_source = current_source[:node.start_char] + replacement + current_source[node.stop_char+1:]
 
-    # ==========================================
-    # PASS 3: Opaque Predicates & Junk Code
-    # ==========================================
+    # PASS 3: Control Flow Flattening (THE GAME CHANGER)
+    if cfg["cflow"]:
+        # Split source into chunks and wrap in state machine
+        lines = current_source.split('\n')
+        if len(lines) > 10:
+            chunk_size = len(lines) // 4
+            chunks = []
+            for i in range(0, len(lines), chunk_size):
+                chunks.append('\n'.join(lines[i:i+chunk_size]))
+            
+            if len(chunks) > 1:
+                state_var = rand_name()
+                flattened = f"""
+do
+    local {state_var} = 0
+    while true do
+        if {state_var} == 0 then
+{chunks[0]}
+            {state_var} = {random.randint(1, 999)}
+        elseif {state_var} == {random.randint(1, 999)} then
+{chunks[1] if len(chunks) > 1 else ''}
+            {state_var} = {random.randint(1, 999)}
+        elseif {state_var} == {random.randint(1, 999)} then
+{chunks[2] if len(chunks) > 2 else ''}
+            {state_var} = {random.randint(1, 999)}
+        else
+{chunks[3] if len(chunks) > 3 else ''}
+            break
+        end
+    end
+end
+"""
+                current_source = flattened
+
+    # PASS 4: Opaque Predicates & Junk
     if cfg["junk"] or cfg["opaque"]:
-        # Prepend an opaque predicate that always evaluates to false, but looks complex
         fake_math1 = random.randint(1000, 9999)
         fake_math2 = random.randint(1000, 9999)
         opaque_check = f"""
@@ -123,9 +143,7 @@ end
 """
         current_source = opaque_check + "\n" + current_source
 
-    # ==========================================
-    # PASS 4: Prepend Runtime Decryption Function
-    # ==========================================
+    # PASS 5: Runtime Decryption Function
     if cfg["strings"]:
         runtime_decryptor = """
 local function __DECRYPT(bytes, key)
@@ -139,11 +157,5 @@ local function __DECRYPT(bytes, key)
 end
 """
         current_source = runtime_decryptor + "\n" + current_source
-
-    # ==========================================
-    # PASS 5: Final Control Flow Wrapping
-    # ==========================================
-    if cfg.get("wrap"):
-        current_source = f"do\n    local __state = {random.randint(1, 9999)}\n    {current_source}\nend"
 
     return current_source

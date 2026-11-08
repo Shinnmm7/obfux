@@ -9,7 +9,6 @@ STRENGTH_LEVELS = {
 }
 
 def rand_name(length=12):
-    # Generates a random variable name like _a8f2b9c1d3e4
     return "_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 def obfuscate(source: str, strength: str = "strong") -> str:
@@ -25,26 +24,24 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     class Renamer(ast.ASTVisitor):
         def visit_LocalAssign(self, node):
             for t in node.targets:
-                # luaparser uses 'Name' for identifiers
                 if isinstance(t, astnodes.Name) and t.id not in var_map:
                     var_map[t.id] = rand_name()
                 if isinstance(t, astnodes.Name):
                     t.id = var_map[t.id]
-            self.generic_visit(node)
+            self.visit_children(node)
             
         def visit_Name(self, node):
             if node.id in var_map:
                 node.id = var_map[node.id]
-            self.generic_visit(node)
+            self.visit_children(node)
             
         def visit_Function(self, node):
-            # Handle function arguments
             for arg in node.args:
                 if isinstance(arg, astnodes.Name) and arg.id not in var_map:
                     var_map[arg.id] = rand_name()
                 if isinstance(arg, astnodes.Name):
                     arg.id = var_map[arg.id]
-            self.generic_visit(node)
+            self.visit_children(node)
 
     Renamer().visit(tree)
 
@@ -52,7 +49,7 @@ def obfuscate(source: str, strength: str = "strong") -> str:
     if cfg["junk"]:
         class JunkInserter(ast.ASTVisitor):
             def visit_Block(self, node):
-                self.generic_visit(node)
+                self.visit_children(node)
                 if random.random() < 0.4 and len(node.body) > 0:
                     junk_var = rand_name()
                     junk_val = random.randint(1000, 99999)

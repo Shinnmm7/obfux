@@ -64,6 +64,10 @@ async def obfuscate_cmd(interaction: discord.Interaction, file: discord.Attachme
             f"💡 Check the script syntax and the selected mode's supported features.",
             ephemeral=True
         )
+    except RuntimeError as e:
+        await interaction.followup.send(
+            f"❌ **Obfuscation unavailable**: {str(e)}", ephemeral=True
+        )
     except Exception as e:
         await interaction.followup.send(f"❌ **Unexpected Error**: {str(e)}", ephemeral=True)
 

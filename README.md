@@ -2,7 +2,27 @@
 
 # Nebula Obfuscator
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:3f04a7ff46f4415ced7bc7d2b1511f2ae7f906d07365ad91357692192f242d72 -->
+
 Obfuscate Lua source through the web form or the Discord `/obf` command. Install dependencies with `python -m pip install -r requirements.txt`, then run `python -m uvicorn main:app`. Set `BOT_TOKEN` to enable the Discord bot.
+
+## Deploy on Railway
+
+The root `Dockerfile` installs Python dependencies plus Lua 5.1 and OpenSSL, which Roblox mode needs. Railway detects this Dockerfile when it builds the repository. Python dependency installation alone does not install these OS tools.
+
+1. Merge the deployment fix into the branch connected to your Railway service, or deploy the task branch.
+2. Keep your existing `BOT_TOKEN` in Railway's service variables. Do not add it to the Dockerfile or repository.
+3. Clear a custom Start Command to use the Dockerfile's default, or use `sh -c 'exec python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}'`. A command that only runs `python main.py` does not start this application.
+4. Redeploy and confirm the build log says `Using detected Dockerfile!`. Retry `/obf` after the bot reconnects.
+
+The container starts the website and Discord bot in one Uvicorn worker and binds Railway's `PORT` (8000 locally). For a local container: `docker build -t nebula-obfuscator .`, then `docker run --rm -p 8000:8000 --env BOT_TOKEN nebula-obfuscator`. Set `BOT_TOKEN` in your shell first if you want the bot; omit `--env BOT_TOKEN` for website-only testing.
+
+On an existing Debian/Ubuntu host without Docker, install `lua5.1` and `openssl` using the OS package manager, then restart the application. See [Railway Dockerfile detection](https://docs.railway.com/builds/dockerfiles) and [start-command configuration](https://docs.railway.com/builds/build-and-start-commands).
+
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 <!-- coderabbit-ai-generated:v1 -->
 

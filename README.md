@@ -77,7 +77,15 @@ Roblox mode requires `lua5.1` and `openssl` on the server's PATH. It accepts up 
 
 Roblox mode stores instructions and constants as individually keyed records. The VM verifies and decodes each record on demand and does not retain a decoded instruction or constant cache. The startup tables contain encoded records; values needed by the running script still exist in its registers and application objects.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:43d644f9e487613db810cbbda963435d34a0c03f1ad9edeb2aabd0ad74280f0b -->
+
 Each build chooses new value tags and decoder parameters. Each record has a random nonce and uses the preceding ciphertext byte when updating its decoding state. Instructions are stored at addresses derived from their logical position, prototype key and build parameters rather than in a sequential code array. These changes vary the record representation across builds and make a fixed-format decoder insufficient; they do not prevent an analyst from extracting the generated schema or tracing execution. Older generated scripts remain self-contained and need no migration.
+
+Roblox mode uses the local `Xien` preset. Its `XienStrings` step replaces the upstream `EncryptStrings` algorithm with typed records and a separate per-build decoder schema, without a persistent decoded-string table. Interpreter literals are hoisted for performance; user constants remain decoded on demand by the VM. Other inherited layers can still identify this as a Prometheus derivative, and runtime calls/values remain observable. A formatted VM or decoded wrapper is evidence of simplification, not by itself proof that original program logic was recovered.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 <!-- /coderabbit-ai-generated:v1 -->
 

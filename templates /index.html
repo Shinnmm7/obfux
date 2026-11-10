@@ -16,6 +16,8 @@
         button:hover { transform: translateY(-2px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         #status { text-align: center; margin-top: 20px; color: #00d4ff; }
+        footer { margin-top: 20px; font-size: 0.8em; overflow-wrap: anywhere; }
+        footer a { color: #b8a1ff; }
     </style>
 </head>
 <body>
@@ -23,18 +25,21 @@
         <h1>⚡ Nebula Obfuscator</h1>
         <form id="form" action="/obfuscate" method="POST" enctype="multipart/form-data">
             <div class="drop-zone" id="dropZone">
-                <p>📁 Drop your .lua file here or click to browse</p>
-                <input type="file" name="file" id="file" accept=".lua,.txt" hidden>
+                <p>📁 Drop your .lua or .luau file here or click to browse</p>
+                <input type="file" name="file" id="file" accept=".lua,.luau,.txt" hidden>
             </div>
             <select name="strength">
                 <option value="light">🟢 Light (remove comments and whitespace)</option>
                 <option value="medium">🟡 Medium (encoded source)</option>
                 <option value="strong" selected>🔴 Strong (encoded, shuffled chunks)</option>
+                <option value="roblox">🟣 Roblox Luau (VM-based)</option>
             </select>
             <p>Medium and strong require Lua load or loadstring. Obfuscation cannot keep client-side code secret.</p>
+            <p>Roblox mode supports a subset of Luau, up to 64 KiB. Type annotations and interpolated strings are unsupported. Debug information and some environment behavior can change.</p>
             <button type="submit" id="btn">🚀 Obfuscate</button>
             <div id="status"></div>
         </form>
+        <footer>Based on Prometheus by Elias Oelschner, <a href="https://github.com/prometheus-lua/Prometheus">https://github.com/prometheus-lua/Prometheus</a></footer>
     </div>
     <script>
         const dz = document.getElementById('dropZone');
@@ -56,7 +61,7 @@
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'obfuscated.lua'; a.click();
+            a.href = url; a.download = fd.get('strength') === 'roblox' ? 'obfuscated.luau' : 'obfuscated.lua'; a.click();
             status.textContent = '✅ Done! File downloaded.';
             btn.disabled = false;
         };

@@ -1,10 +1,12 @@
 import asyncio
 import io
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException, UploadFile
 
@@ -13,6 +15,8 @@ from obfuscator import obfuscate
 
 
 LUA_VERSIONS = [v for v in ('lua5.1', 'lua5.2', 'lua5.3', 'lua5.4') if shutil.which(v)]
+LUAU = os.environ.get('LUAU_BIN') or shutil.which('luau')
+ROBLOX_COMPILER = shutil.which('lua5.1') and shutil.which('openssl')
 
 
 class ObfuscatorTests(unittest.TestCase):
@@ -101,6 +105,66 @@ assert(a == "custom" and b == "first" and c == "second")
             with self.subTest(data=data), self.assertRaises(HTTPException) as caught:
                 asyncio.run(obfuscate_endpoint(UploadFile(filename='test.lua', file=io.BytesIO(data)), 'strong'))
             self.assertEqual(caught.exception.status_code, 400)
+
+    def test_roblox_mode_reports_missing_runtime(self):
+        with patch('obfuscator.shutil.which', return_value=None):
+            with self.assertRaisesRegex(RuntimeError, 'Lua 5.1 and OpenSSL'):
+                obfuscate('print("hi")', 'roblox')
+            with self.assertRaises(HTTPException) as caught:
+                asyncio.run(obfuscate_endpoint(
+                    UploadFile(filename='test.luau', file=io.BytesIO(b'print("hi")')), 'roblox'))
+            self.assertEqual(caught.exception.status_code, 503)
+
+    def test_roblox_mode_rejects_predictable_randomness(self):
+        result = subprocess.CompletedProcess([], 0, 'OpenSSL is unavailable. Falling back to unix time.', '')
+        with patch('obfuscator.shutil.which', return_value='/usr/bin/tool'), \
+             patch('obfuscator.subprocess.run', return_value=result):
+            with self.assertRaisesRegex(RuntimeError, 'randomness from OpenSSL'):
+                obfuscate('print("hi")', 'roblox')
+
+    def test_roblox_mode_reports_busy(self):
+        with patch('obfuscator.shutil.which', return_value='/usr/bin/tool'), \
+             patch('obfuscator._ROBLOX_WORKERS') as workers:
+            workers.acquire.return_value = False
+            with self.assertRaisesRegex(RuntimeError, 'busy'):
+                obfuscate('print("hi")', 'roblox')
+            workers.release.assert_not_called()
+
+    @unittest.skipUnless(ROBLOX_COMPILER, 'Lua 5.1 and OpenSSL required')
+    def test_roblox_mode_rejects_unsupported_luau(self):
+        for source in ('local x: number = 1', 'print(`hello`)'):
+            with self.subTest(source=source), self.assertRaisesRegex(ValueError, 'unsupported Luau'):
+                obfuscate(source, 'roblox')
+
+    @unittest.skipUnless(ROBLOX_COMPILER and LUAU, 'Lua 5.1, OpenSSL and Luau CLI required')
+    def test_roblox_vm_preserves_luau_execution(self):
+        source = '''
+local marker = "a unique test string"
+local function sum(n)
+    local total = 0
+    for i = 1, n do
+        if i == 2 then continue end
+        total += i
+    end
+    return function() return total end
+end
+print(game:GetService("Players").Name, marker, sum(5)())
+'''
+        results = [obfuscate(source, 'roblox') for _ in range(2)]
+        self.assertNotEqual(*results)
+        with tempfile.TemporaryDirectory() as tmp:
+            original = Path(tmp, 'original.luau')
+            output = Path(tmp, 'output.luau')
+            mock_roblox = 'game = {GetService = function(self, name) return {Name = name} end}\n'
+            original.write_text(mock_roblox + source, encoding='utf-8')
+            expected = subprocess.run([LUAU, str(original)], check=True, capture_output=True, timeout=20).stdout
+            for result in results:
+                self.assertNotIn('a unique test string', result)
+                # The generated VM should not need the decoded source passed to loadstring.
+                output.write_text(mock_roblox + 'loadstring = function() error("unexpected loadstring") end\n' + result,
+                                  encoding='utf-8')
+                actual = subprocess.run([LUAU, str(output)], check=True, capture_output=True, timeout=20).stdout
+                self.assertEqual(expected, actual)
 
 
 if __name__ == '__main__':

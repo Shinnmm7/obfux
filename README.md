@@ -19,7 +19,19 @@ Medium and strong decode and compile the source at runtime and require Lua `load
 
 Roblox mode requires `lua5.1` and `openssl` on the server's PATH. It accepts up to 64 KiB of UTF-8 source and supports only a subset of Luau: type annotations, type declarations and interpolated strings are unsupported. It changes debug information and may change behavior for code that replaces a running function's environment. See [Prometheus limitations](https://github.com/prometheus-lua/Prometheus/blob/a98c50165f2a53f6d765a82eee60dfea53803445/doc/reference/limitations.md). Generated code can be much larger and slower; test it in your Roblox environment. There is no guarantee of Luraph-equivalent protection or resistance to deobfuscation.
 
-Based on Prometheus by Elias Oelschner, https://github.com/prometheus-lua/Prometheus. The vendored revision and license are in `vendor/prometheus/`.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:e65e9dd19e84ac43e9bd0f9bb789de3cd0f81c69a2a56f879afe0d5eae2c52d4 -->
+
+### VM storage protections
+
+Roblox mode stores instructions and constants as individually keyed records. The VM verifies and decodes each record on demand and does not retain a decoded instruction or constant cache. The startup tables contain encoded records; values needed by the running script still exist in its registers and application objects.
+
+Record checksums reject corrupted payloads before use. They are not cryptographic authentication, and the reversible encoding is not cryptographic encryption. Keys and the decoder ship with the program. Someone controlling the runtime can instrument decoding, recover values or patch the checks. Clearing references permits garbage collection; it does not securely erase memory. These changes reduce exposure to simple startup table dumps and do not establish Luraph-equivalent or general anti-dumping protection.
+
+Based on Prometheus by Elias Oelschner, https://github.com/prometheus-lua/Prometheus. This project modifies its VM data, layout, runtime and dispatch modules and adds a record codec. The upstream revision, local changes and license are recorded in `vendor/prometheus/`.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 <!-- /coderabbit-ai-generated:v1 -->
 

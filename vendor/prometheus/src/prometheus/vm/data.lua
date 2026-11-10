@@ -1,8 +1,9 @@
--- Scatter the emitted table graph; rebuild ordinary tables once before VM startup.
+-- Scatter encoded records; startup reconstruction does not decode VM instructions.
 local Ast = require('prometheus.ast')
 local Unparser = require('prometheus.unparser')
 local Enums = require('prometheus.enums')
 local shuffle = require('prometheus.util').shuffle
+local Codec = require('prometheus.vm.codec')
 local Data = {}
 
 Data.rebuild = [=[
@@ -25,14 +26,21 @@ end
 
 function Data.encode(proto, layout)
     local function prototype(value)
-        local result, code, children = {}, {}, {}
+        local result, code, children, constants = {}, {}, {}, {}
+        local key = math.random(1, 2147483646)
         for i, instruction in ipairs(value.code) do
-            code[i] = layout:encode(instruction)
+            local encoded, length = layout:encode(instruction)
+            code[i] = Codec.encode(encoded, key, i, length)
+        end
+        for i, constant in ipairs(value.constants) do
+            constants[i] = Codec.encode(constant, key, -i)
         end
         for i, child in ipairs(value.children) do children[i] = prototype(child) end
         result[layout.fields.code] = code
+        result[layout.fields.constants] = constants
+        result[layout.fields.key] = key
         result[layout.fields.children] = children
-        for _, name in ipairs({'constants', 'captures', 'params', 'vararg', 'maxRegister'}) do
+        for _, name in ipairs({'captures', 'params', 'vararg', 'maxRegister'}) do
             result[layout.fields[name]] = value[name]
         end
         return result

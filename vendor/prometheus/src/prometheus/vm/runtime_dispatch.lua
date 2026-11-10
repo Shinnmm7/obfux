@@ -3,7 +3,7 @@ local M = {}
 local callBodies = require("prometheus.vm.runtime_calls")
 
 local bodies = {
-    LOAD = [==[R[a] = K[b]]==],
+    LOAD = [==[R[a] = constant(P, b)]==],
     NIL = [==[R[a] = nil]==],
     MOVE = [==[R[a] = R[b]]==],
     CLEAR = [==[R[a] = nil]==],
@@ -12,8 +12,8 @@ local bodies = {
     SETCELL = [==[R[a][1] = R[b]]==],
     GETUP = [==[R[a] = U[b][1]]==],
     SETUP = [==[U[a][1] = R[b]]==],
-    GLOBAL = [==[R[a] = Env[K[b]]]==],
-    SETGLOBAL = [==[Env[K[a]] = R[b]]==],
+    GLOBAL = [==[R[a] = Env[constant(P, b)]]==],
+    SETGLOBAL = [==[Env[constant(P, a)] = R[b]]==],
     GETTABLE = [==[R[a] = R[b][R[c]]]==],
     SETTABLE = [==[R[a][R[b]] = R[c]]==],
     TABLE = [==[R[a] = {}]==],

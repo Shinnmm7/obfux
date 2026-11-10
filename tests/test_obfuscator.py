@@ -20,6 +20,11 @@ ROBLOX_COMPILER = shutil.which('lua5.1') and shutil.which('openssl')
 
 
 class ObfuscatorTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('lua5.1'), 'Lua 5.1 required')
+    def test_vm_record_integrity_and_startup_exposure(self):
+        subprocess.run(['lua5.1', 'tests/vm_codec.lua'], check=True, capture_output=True,
+                       timeout=20, cwd=Path(__file__).resolve().parents[1])
+
     def test_invalid_lua_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Lua syntax error'):
             obfuscate('local function broken(')
@@ -165,6 +170,33 @@ print(game:GetService("Players").Name, marker, sum(5)())
                                   encoding='utf-8')
                 actual = subprocess.run([LUAU, str(output)], check=True, capture_output=True, timeout=20).stdout
                 self.assertEqual(expected, actual)
+
+    @unittest.skipUnless(ROBLOX_COMPILER and LUAU, 'Lua 5.1, OpenSSL and Luau CLI required')
+    def test_roblox_vm_preserves_calls_and_numeric_constants(self):
+        source = '''
+local function pack(...) return {n=select('#', ...), ...} end
+local function make(v) return function(...) return v, ... end end
+local function tail(f, ...) return f(...) end
+local co = coroutine.create(function()
+    local first = coroutine.yield('paused', 1.2345678901234567)
+    return first, -1 / (1 / 0), 1e300, 1e-300
+end)
+print(coroutine.resume(co))
+print(coroutine.resume(co, 'resumed'))
+local r = pack(tail(make('closure'), nil, false, 'last'))
+print(r.n, r[1], r[2], r[3], r[4])
+for i = 1, 3 do print(make(i)()) end
+local t = setmetatable({}, {__add=function() return 99 end})
+print(t+t)
+'''
+        result = obfuscate(source, 'roblox')
+        with tempfile.TemporaryDirectory() as tmp:
+            original, output = Path(tmp, 'original.luau'), Path(tmp, 'output.luau')
+            original.write_text(source, encoding='utf-8')
+            output.write_text(result, encoding='utf-8')
+            expected = subprocess.run([LUAU, str(original)], check=True, capture_output=True, timeout=20).stdout
+            actual = subprocess.run([LUAU, str(output)], check=True, capture_output=True, timeout=20).stdout
+            self.assertEqual(expected, actual)
 
 
 if __name__ == '__main__':

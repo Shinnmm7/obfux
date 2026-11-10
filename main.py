@@ -2,7 +2,7 @@ import io
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, Form, File
+from fastapi import FastAPI, UploadFile, Form, File, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 import discord
 from discord.ext import commands
@@ -111,10 +111,11 @@ HTML_CONTENT = """<!DOCTYPE html>
                 <input type="file" name="file" id="file" accept=".lua,.txt" hidden>
             </div>
             <select name="strength">
-                <option value="light">🟢 Light (fast, variable rename only)</option>
-                <option value="medium">🟡 Medium (+ junk code)</option>
-                <option value="strong" selected>🔴 Strong (full protection)</option>
+                <option value="light">🟢 Light (remove comments and whitespace)</option>
+                <option value="medium">🟡 Medium (encoded source)</option>
+                <option value="strong" selected>🔴 Strong (encoded, shuffled chunks)</option>
             </select>
+            <p>Medium and strong require Lua load or loadstring. Obfuscation cannot keep client-side code secret.</p>
             <button type="submit" id="btn">🚀 Obfuscate</button>
             <div id="status"></div>
         </form>
@@ -155,8 +156,13 @@ async def home():
 @app.post("/obfuscate")
 async def obfuscate_endpoint(file: UploadFile = File(...), strength: str = Form("strong")):
     content = await file.read()
-    source = content.decode("utf-8")
-    result = obfuscate(source, strength)
+    try:
+        source = content.decode("utf-8")
+        result = obfuscate(source, strength)
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="File must be valid UTF-8") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     
     buffer = io.BytesIO(result.encode("utf-8"))
     return StreamingResponse(

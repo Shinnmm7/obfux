@@ -28,7 +28,10 @@ def _obfuscate_roblox(source: str) -> str:
     lua = shutil.which("lua5.1")
     openssl = shutil.which("openssl")
     if not lua or not openssl:
-        raise RuntimeError("Roblox mode requires Lua 5.1 and OpenSSL on the server")
+        raise RuntimeError(
+            "Roblox mode requires Lua 5.1 and OpenSSL on the server. "
+            "Deploy using the repository Dockerfile, or install both tools and add them to PATH."
+        )
     if not _ROBLOX_WORKERS.acquire(blocking=False):
         raise RuntimeError("Roblox obfuscation is busy; please try again")
     try:

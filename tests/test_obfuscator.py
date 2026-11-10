@@ -6,11 +6,11 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException, UploadFile
 
-from main import obfuscate_endpoint
+from main import obfuscate_cmd, obfuscate_endpoint
 from obfuscator import obfuscate
 
 
@@ -119,6 +119,20 @@ assert(a == "custom" and b == "first" and c == "second")
                 asyncio.run(obfuscate_endpoint(
                     UploadFile(filename='test.luau', file=io.BytesIO(b'print("hi")')), 'roblox'))
             self.assertEqual(caught.exception.status_code, 503)
+
+    def test_discord_reports_missing_server_tools(self):
+        interaction = MagicMock()
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
+        attachment = MagicMock(filename='test.lua')
+        attachment.read = AsyncMock(return_value=b'print("hi")')
+        with patch('obfuscator.shutil.which', return_value=None):
+            asyncio.run(obfuscate_cmd.callback(interaction, attachment, 'roblox'))
+        interaction.followup.send.assert_awaited_once()
+        message = interaction.followup.send.call_args.args[0]
+        self.assertIn('Obfuscation unavailable', message)
+        self.assertIn('repository Dockerfile', message)
+        self.assertNotIn('Unexpected Error', message)
 
     def test_roblox_mode_rejects_predictable_randomness(self):
         result = subprocess.CompletedProcess([], 0, 'OpenSSL is unavailable. Falling back to unix time.', '')

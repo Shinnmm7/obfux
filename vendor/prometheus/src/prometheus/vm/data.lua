@@ -30,10 +30,10 @@ function Data.encode(proto, layout)
         local key = math.random(1, 2147483646)
         for i, instruction in ipairs(value.code) do
             local encoded, length = layout:encode(instruction)
-            code[i] = Codec.encode(encoded, key, i, length)
+            code[layout:address(i, key)] = Codec.encode(encoded, key, i, length, layout.codec)
         end
         for i, constant in ipairs(value.constants) do
-            constants[i] = Codec.encode(constant, key, -i)
+            constants[i] = Codec.encode(constant, key, -i, nil, layout.codec)
         end
         for i, child in ipairs(value.children) do children[i] = prototype(child) end
         result[layout.fields.code] = code

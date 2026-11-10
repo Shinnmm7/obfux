@@ -31,7 +31,7 @@ local function loop(P, U, Env, R, V)
     local pc = 1
     local I, opcode, a, b, c, d, x, y, z
     while true do
-        I = decode(code[pc], key, pc)
+        I = decode(code[(pc * __CODE_STRIDE__ + key + __CODE_SALT__) % 2147483647], key, pc)
         pc = pc + 1
         opcode = I[1]
         __FETCH_OPERANDS__
@@ -112,12 +112,14 @@ function Runtime.build(layout)
     local fetch = "a, b, c, d = I[" .. tostring(operands[1]) .. "], I["
         .. tostring(operands[2]) .. "], I[" .. tostring(operands[3]) .. "], I["
         .. tostring(operands[4]) .. "]"
-    local source = template:gsub("__DECODER__", function() return Codec.runtime end)
+    local source = template:gsub("__DECODER__", function() return Codec.runtime(layout.codec) end)
     source = source:gsub("__FETCH_OPERANDS__", function()
         return fetch
     end):gsub("__DISPATCH__", function()
         return dispatch.build(layout.opcodes)
     end)
+    source = source:gsub('__CODE_STRIDE__', tostring(layout.codeStride))
+        :gsub('__CODE_SALT__', tostring(layout.codeSalt))
     source = source:gsub('__FIELD_(%w+)__', function(name)
         return tostring(assert(layout.fields[name], 'Missing VM prototype key'))
     end):gsub('__COUNT_KEY__', function() return tostring(layout.countKey) end)

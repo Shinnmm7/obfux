@@ -1,5 +1,6 @@
 -- Choose instruction encoding and metadata keys per VM. Compiler IR stays semantic.
 local opcodes = require('prometheus.vm.opcodes')
+local Codec = require('prometheus.vm.codec')
 local shuffle = require('prometheus.util').shuffle
 local fields = {'code', 'constants', 'captures', 'params', 'vararg', 'maxRegister', 'children', 'key'}
 local Layout = {}
@@ -19,6 +20,9 @@ function Layout.new()
         layout.opcodes[entry.name] = ids[i]
         layout.ids[entry.id] = ids[i]
     end
+    layout.codec = Codec.new()
+    layout.codeStride = math.random(65536, 1048575)
+    layout.codeSalt = math.random(1, 2147483646)
     layout.fields = {}
     local used = {}
     for _, name in ipairs(fields) do
@@ -30,6 +34,13 @@ function Layout.new()
     -- Counted tuples also contain positive array indices, so keep metadata negative.
     layout.countKey = -math.random(1024, 16777215)
     return layout
+end
+
+-- A nonzero multiplier modulo a prime gives distinct addresses for distinct PCs.
+-- Keep the product below 2^53 so Lua 5.1 and Luau agree exactly.
+function Layout:address(pc, key)
+    assert(pc > 0 and pc < 2147483647, 'VM instruction address out of range')
+    return (pc * self.codeStride + key + self.codeSalt) % 2147483647
 end
 
 function Layout:encode(instruction)

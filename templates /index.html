@@ -30,11 +30,11 @@
             </div>
             <select name="strength">
                 <option value="light">🟢 Light (remove comments and whitespace)</option>
-                <option value="medium">🟡 Medium (encoded source)</option>
-                <option value="strong" selected>🔴 Strong (encoded, shuffled chunks)</option>
-                <option value="roblox">🟣 Roblox Luau (VM-based)</option>
+                <option value="medium">🟡 Lua Medium (requires load/loadstring)</option>
+                <option value="strong">🔴 Lua Strong (requires load/loadstring)</option>
+                <option value="roblox" selected>🟣 Roblox Luau (VM-based, recommended for Roblox)</option>
             </select>
-            <p>Medium and strong require Lua load or loadstring. Obfuscation cannot keep client-side code secret.</p>
+            <p>For Roblox scripts, use Roblox Luau mode. Lua Medium and Lua Strong require load or loadstring. Obfuscation cannot keep client-side code secret.</p>
             <p>Roblox mode supports a subset of Luau, up to 64 KiB. Type annotations and interpolated strings are unsupported. Debug information and some environment behavior can change.</p>
             <button type="submit" id="btn">🚀 Obfuscate</button>
             <div id="status"></div>

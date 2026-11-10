@@ -2,6 +2,7 @@
 -- __PROTOTYPES__ with the startup reconstruction call before parsing the source.
 local dispatch = require("prometheus.vm.runtime_dispatch")
 local Layout = require("prometheus.vm.layout")
+local Codec = require("prometheus.vm.codec")
 
 local Runtime = {}
 
@@ -13,6 +14,11 @@ local nativeGetfenv, nativeSetfenv = getfenv, setfenv
 local nativeUnpack = unpack or table.unpack
 local nativeTonumber, nativeError = tonumber, error
 local nativeSelect, nativeIpairs = select, ipairs
+__DECODER__
+
+local function constant(P, index)
+    return decode(P[__FIELD_constants__][index], P[__FIELD_key__], -index)
+end
 
 local function pack(...)
     return { [__COUNT_KEY__] = nativeSelect("#", ...), ... }
@@ -21,14 +27,15 @@ end
 local make
 
 local function loop(P, U, Env, R, V)
-    local code, K = P[__FIELD_code__], P[__FIELD_constants__]
+    local code, key = P[__FIELD_code__], P[__FIELD_key__]
     local pc = 1
     local I, opcode, a, b, c, d, x, y, z
     while true do
-        I = code[pc]
+        I = decode(code[pc], key, pc)
         pc = pc + 1
         opcode = I[1]
         __FETCH_OPERANDS__
+        I = nil
         __DISPATCH__
         I, opcode, a, b, c, d, x, y, z = nil, nil, nil, nil, nil, nil, nil, nil, nil
     end
@@ -105,7 +112,8 @@ function Runtime.build(layout)
     local fetch = "a, b, c, d = I[" .. tostring(operands[1]) .. "], I["
         .. tostring(operands[2]) .. "], I[" .. tostring(operands[3]) .. "], I["
         .. tostring(operands[4]) .. "]"
-    local source = template:gsub("__FETCH_OPERANDS__", function()
+    local source = template:gsub("__DECODER__", function() return Codec.runtime end)
+    source = source:gsub("__FETCH_OPERANDS__", function()
         return fetch
     end):gsub("__DISPATCH__", function()
         return dispatch.build(layout.opcodes)

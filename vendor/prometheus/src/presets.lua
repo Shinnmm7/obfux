@@ -4,7 +4,7 @@
 --
 -- This Script provides the predefined obfuscation presets for Prometheus
 
-return {
+local presets = {
 	-- Minifies your code. Does not obfuscate it. No performance loss.
 	["Minify"] = {
 		LuaVersion = "Lua51",
@@ -130,3 +130,15 @@ return {
 		},
 	},
 }
+
+-- Keep upstream presets available to CLI users. Roblox uses the Xien derivative.
+local function copy(value)
+	if type(value) ~= 'table' then return value end
+	local result = {}
+	for key, entry in pairs(value) do result[key] = copy(entry) end
+	return result
+end
+presets.Xien = copy(presets.Strong)
+assert(presets.Xien.Steps[2].Name == 'EncryptStrings')
+presets.Xien.Steps[2] = {Name = 'XienStrings', Settings = {}}
+return presets

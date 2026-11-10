@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nebula Obfuscator</title>
+    <title>Xien Obfuscator</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -22,7 +22,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>⚡ Nebula Obfuscator</h1>
+        <h1>⚡ Xien Obfuscator</h1>
         <form id="form" action="/obfuscate" method="POST" enctype="multipart/form-data">
             <div class="drop-zone" id="dropZone">
                 <p>📁 Drop your .lua or .luau file here or click to browse</p>
@@ -61,7 +61,7 @@
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = fd.get('strength') === 'roblox' ? 'obfuscated.luau' : 'obfuscated.lua'; a.click();
+            a.href = url; a.download = fd.get('strength') === 'roblox' ? 'xien.luau' : 'xien.lua'; a.click();
             status.textContent = '✅ Done! File downloaded.';
             btn.disabled = false;
         };

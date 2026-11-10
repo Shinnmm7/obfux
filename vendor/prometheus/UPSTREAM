@@ -1,10 +1,12 @@
 Prometheus source revision: a98c50165f2a53f6d765a82eee60dfea53803445
 Source: https://github.com/prometheus-lua/Prometheus
 
-Nebula local modifications:
+Xien local modifications:
 - vm/codec.lua: per-build record tags and decoder parameters, per-record nonces,
   ciphertext feedback, and integrity checks for instructions and constants.
 - vm/data.lua and vm/layout.lua: encode records with per-prototype keys
   and store instructions at keyed, scattered addresses.
 - vm/runtime.lua and vm/runtime_dispatch.lua: decode on use without plaintext caches.
+- steps/XienStrings.lua, steps.lua and presets.lua: Xien preset uses typed literal
+  records instead of the upstream EncryptStrings algorithm and plaintext cache.
 These files differ from the upstream revision above; LICENSE remains unchanged.

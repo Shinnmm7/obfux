@@ -48,7 +48,7 @@ def _run_roblox_compiler(source: str, lua: str, openssl: str) -> str:
         try:
             result = subprocess.run(
                 [lua, str(_PROMETHEUS / "cli.lua"), "--nocolors", "--LuaU",
-                 "--preset", "Strong", "--out", str(output_path), str(source_path)],
+                 "--preset", "Xien", "--out", str(output_path), str(source_path)],
                 cwd=_PROMETHEUS,
                 env={"PATH": os.path.dirname(openssl) + os.pathsep + os.defpath},
                 capture_output=True, text=True, timeout=_ROBLOX_TIMEOUT,

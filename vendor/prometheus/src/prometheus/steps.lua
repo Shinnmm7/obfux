@@ -16,6 +16,7 @@ return {
 	ProxifyLocals = require("prometheus.steps.ProxifyLocals"),
 	AntiTamper = require("prometheus.steps.AntiTamper"),
 	EncryptStrings = require("prometheus.steps.EncryptStrings"),
+	XienStrings = require("prometheus.steps.XienStrings"),
 	NumbersToExpressions = require("prometheus.steps.NumbersToExpressions"),
 	AddVararg = require("prometheus.steps.AddVararg"),
 	WatermarkCheck = require("prometheus.steps.WatermarkCheck"),

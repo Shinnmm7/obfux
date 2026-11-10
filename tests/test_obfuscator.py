@@ -21,6 +21,11 @@ ROBLOX_COMPILER = shutil.which('lua5.1') and shutil.which('openssl')
 
 class ObfuscatorTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('lua5.1'), 'Lua 5.1 required')
+    def test_xien_literal_records(self):
+        subprocess.run(['lua5.1', 'tests/xien_strings.lua'], check=True, capture_output=True,
+                       timeout=20, cwd=Path(__file__).resolve().parents[1])
+
+    @unittest.skipUnless(shutil.which('lua5.1'), 'Lua 5.1 required')
     def test_vm_record_integrity_and_startup_exposure(self):
         subprocess.run(['lua5.1', 'tests/vm_codec.lua'], check=True, capture_output=True,
                        timeout=20, cwd=Path(__file__).resolve().parents[1])

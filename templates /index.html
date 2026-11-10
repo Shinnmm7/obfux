@@ -27,10 +27,11 @@
                 <input type="file" name="file" id="file" accept=".lua,.txt" hidden>
             </div>
             <select name="strength">
-                <option value="light">🟢 Light (fast, variable rename only)</option>
-                <option value="medium">🟡 Medium (+ junk code)</option>
-                <option value="strong" selected>🔴 Strong (full protection)</option>
+                <option value="light">🟢 Light (remove comments and whitespace)</option>
+                <option value="medium">🟡 Medium (encoded source)</option>
+                <option value="strong" selected>🔴 Strong (encoded, shuffled chunks)</option>
             </select>
+            <p>Medium and strong require Lua load or loadstring. Obfuscation cannot keep client-side code secret.</p>
             <button type="submit" id="btn">🚀 Obfuscate</button>
             <div id="status"></div>
         </form>

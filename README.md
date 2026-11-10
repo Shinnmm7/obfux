@@ -31,7 +31,15 @@ Roblox mode requires `lua5.1` and `openssl` on the server's PATH. It accepts up 
 
 ### VM storage protections
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:8608b28e8fd4edc3cf158d0318cf6d1517d593f0462c8bbc7b9891b3aebfb342 -->
+
 Roblox mode stores instructions and constants as individually keyed records. The VM verifies and decodes each record on demand and does not retain a decoded instruction or constant cache. The startup tables contain encoded records; values needed by the running script still exist in its registers and application objects.
+
+Each build chooses new value tags and decoder parameters. Each record has a random nonce and uses the preceding ciphertext byte when updating its decoding state. Instructions are stored at addresses derived from their logical position, prototype key and build parameters rather than in a sequential code array. These changes vary the record representation across builds and make a fixed-format decoder insufficient; they do not prevent an analyst from extracting the generated schema or tracing execution. Older generated scripts remain self-contained and need no migration.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 Record checksums reject corrupted payloads before use. They are not cryptographic authentication, and the reversible encoding is not cryptographic encryption. Keys and the decoder ship with the program. Someone controlling the runtime can instrument decoding, recover values or patch the checks. Clearing references permits garbage collection; it does not securely erase memory. These changes reduce exposure to simple startup table dumps and do not establish Luraph-equivalent or general anti-dumping protection.
 

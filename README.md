@@ -13,7 +13,13 @@ Obfuscate Lua source through the web form or the Discord `/obf` command. Install
 - **Light** removes comments and unnecessary whitespace using Lua tokens.
 - **Medium** encodes the cleaned source in randomized chunks.
 - **Strong** uses smaller, shuffled encoded chunks to make the output harder to inspect.
-- **Roblox Luau** uses a VM-based transform and string and control-flow obfuscation. Select `roblox` in the web form or Discord `/obf` command.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:483f991bbbec1b36226f4128561f30c7a74929efc8a2e6a8bfd52f2d0f106bf1 -->
+
+- **Roblox Luau** uses a VM-based transform and string and control-flow obfuscation. It is the default for the web form, API uploads with no strength field, and Discord `/obf`. Use it for Roblox LocalScripts. Files previously produced by Medium or Strong must be regenerated in Roblox mode. The Python `obfuscate()` library default remains `strong` for existing Lua callers.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 Medium and strong decode and compile the source at runtime and require Lua `load` or `loadstring`, as well as the standard string and table libraries. They cannot run in environments that disable dynamic loading. Lua 5.1, 5.2, 5.3 and 5.4 are covered by the execution tests. Input must be accepted by the installed `luaparser`; dialect-specific syntax may not be supported.
 

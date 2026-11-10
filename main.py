@@ -27,7 +27,7 @@ async def on_ready():
 
 @bot.tree.command(name="obf", description="Obfuscate a Lua script")
 async def obfuscate_cmd(interaction: discord.Interaction, file: discord.Attachment,
-                        strength: Literal["strong", "roblox"] = "strong"):
+                        strength: Literal["strong", "roblox"] = "roblox"):
     await interaction.response.defer(ephemeral=True)
     
     if not file.filename.endswith((".lua", ".luau", ".txt")):
@@ -116,11 +116,11 @@ HTML_CONTENT = """<!DOCTYPE html>
             </div>
             <select name="strength">
                 <option value="light">🟢 Light (remove comments and whitespace)</option>
-                <option value="medium">🟡 Medium (encoded source)</option>
-                <option value="strong" selected>🔴 Strong (encoded, shuffled chunks)</option>
-                <option value="roblox">🟣 Roblox Luau (VM-based)</option>
+                <option value="medium">🟡 Lua Medium (requires load/loadstring)</option>
+                <option value="strong">🔴 Lua Strong (requires load/loadstring)</option>
+                <option value="roblox" selected>🟣 Roblox Luau (VM-based, recommended for Roblox)</option>
             </select>
-            <p>Medium and strong require Lua load or loadstring. Obfuscation cannot keep client-side code secret.</p>
+            <p>For Roblox scripts, use Roblox Luau mode. Lua Medium and Lua Strong require load or loadstring. Obfuscation cannot keep client-side code secret.</p>
             <p>Roblox mode supports a subset of Luau, up to 64 KiB. Type annotations and interpolated strings are unsupported. Debug information and some environment behavior can change.</p>
             <button type="submit" id="btn">🚀 Obfuscate</button>
             <div id="status"></div>
@@ -161,7 +161,7 @@ async def home():
     return HTMLResponse(content=HTML_CONTENT)
 
 @app.post("/obfuscate")
-async def obfuscate_endpoint(file: UploadFile = File(...), strength: str = Form("strong")):
+async def obfuscate_endpoint(file: UploadFile = File(...), strength: str = Form("roblox")):
     content = await file.read()
     try:
         source = content.decode("utf-8")
